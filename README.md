@@ -3,7 +3,9 @@
 Team name: LIX
 
 Team members:
+
 Borcan Luca-Cristian
+
 Drăguțescu Izabela
 
 School:
