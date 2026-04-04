@@ -9,7 +9,7 @@ Borcan Luca-Cristian
 Drăguțescu Izabela
 
 **School:**
-Colegiul Național "Tudor Vladmirescu" Târgu Jiu
+Colegiul Național "Tudor Vladimirescu" Târgu Jiu
 
 **Technology used:**
 Thunkable
