@@ -1,0 +1,479 @@
+const ComponentFunction = function() {
+  // @section:imports @depends:[]
+  const React = require('react');
+  const { useState, useEffect, useContext, useMemo, useCallback } = React;
+  const { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Alert, StatusBar } = require('react-native');
+  const { MaterialIcons } = require('@expo/vector-icons');
+  const { createBottomTabNavigator } = require('@react-navigation/bottom-tabs');
+  const { useSafeAreaInsets } = require('react-native-safe-area-context');
+  const { useQuery, useMutation } = require('platform-hooks');
+  // @end:imports
+
+  // Layout constants
+  var TAB_MENU_HEIGHT = Platform.OS === 'web' ? 56 : 49;
+  var SCROLL_EXTRA_PADDING = 16;
+  var WEB_TAB_MENU_PADDING = 90;
+  var FAB_SPACING = 16;
+
+  // @section:theme @depends:[]
+  const storageStrategy = 'all-local';
+  const primaryColor = '#ff5a5f';
+  const accentColor = '#00a699';
+  const backgroundColor = '#ffffff';
+  const cardColor = '#ffffff';
+  const textPrimary = '#484848';
+  const textSecondary = '#767676';
+  const designStyle = 'professional';
+  // @end:theme
+
+  // @section:navigation-setup @depends:[]
+  const Tab = createBottomTabNavigator();
+  // @end:navigation-setup
+
+  // @section:ThemeContext @depends:[theme]
+  const ThemeContext = React.createContext({
+    theme: { colors: { primary: primaryColor, accent: accentColor, background: backgroundColor, card: cardColor, textPrimary: textPrimary, textSecondary: textSecondary, border: '#E5E7EB', success: '#10B981', error: '#EF4444', warning: '#F59E0B' } },
+    darkMode: false,
+    toggleDarkMode: function() {},
+    designStyle: designStyle,
+  });
+  
+  const ThemeProvider = function(props) {
+    const [darkMode, setDarkMode] = useState(false);
+    const lightTheme = useMemo(function() {
+      return {
+        colors: {
+          primary: primaryColor,
+          accent: accentColor,
+          background: backgroundColor,
+          card: cardColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+          border: '#E5E7EB',
+          success: '#10B981',
+          error: '#EF4444',
+          warning: '#F59E0B'
+        }
+      };
+    }, []);
+    
+    const darkTheme = useMemo(function() {
+      return {
+        colors: {
+          primary: primaryColor,
+          accent: accentColor,
+          background: '#1F2937',
+          card: '#374151',
+          textPrimary: '#F9FAFB',
+          textSecondary: '#D1D5DB',
+          border: '#4B5563',
+          success: '#10B981',
+          error: '#EF4444',
+          warning: '#F59E0B'
+        }
+      };
+    }, []);
+    
+    const theme = darkMode ? darkTheme : lightTheme;
+    const toggleDarkMode = useCallback(function() {
+      setDarkMode(function(prev) { return !prev; });
+    }, []);
+    
+    const value = useMemo(function() {
+      return { theme: theme, darkMode: darkMode, toggleDarkMode: toggleDarkMode, designStyle: designStyle };
+    }, [theme, darkMode, toggleDarkMode]);
+    
+    return React.createElement(ThemeContext.Provider, { testID: 'Provider-1', value: value }, props.children);
+  };
+  
+  const useTheme = function() { return useContext(ThemeContext); };
+  // @end:ThemeContext
+
+  // @section:CommunityWallScreen @depends:[ThemeContext,styles]
+  const CommunityWallScreen = function() {
+    const themeContext = useTheme();
+    const theme = themeContext.theme;
+    const insets = useSafeAreaInsets();
+    var scrollBottomPadding = Platform.OS === 'web' ? WEB_TAB_MENU_PADDING : (TAB_MENU_HEIGHT + insets.bottom + SCROLL_EXTRA_PADDING);
+    var scrollTopPadding = insets.top;
+
+    const { data: notices, loading, refetch } = useQuery('notices');
+    const { mutate: insertNotice } = useMutation('notices', 'insert');
+    const { mutate: deleteNotice } = useMutation('notices', 'delete');
+
+    const exampleNotices = [
+      { id: '1', title: 'Fond Rulment - Aprilie', category: 'Financiar', details: 'Informații despre fondul de rulment pentru luna aprilie.', postedBy: 'Ionescu (Ap. 12)' },
+      { id: '2', title: 'Ședință Asociație - 15 Mai', category: 'Anunț', details: 'Ședința generală a asociației de proprietari va avea loc pe 15 mai.', postedBy: 'Andreescu (Ap. 2)' },
+      { id: '3', title: 'Ajutor umanitar: Caz Scara B', category: 'Urgență', details: 'Se solicită ajutor pentru familia de la scara B.', postedBy: 'Popescu (Ap. 8)' },
+      { id: '4', title: 'Regulă: Ore de liniște', category: 'Regulament', details: 'Ore de liniște: 22:00 - 08:00 în zilele de lucru.', postedBy: 'Mihai (Ap. 15)' }
+    ];
+
+    useEffect(function() {
+      if (notices && notices.length === 0) {
+        exampleNotices.forEach(function(notice) {
+          insertNotice({ title: notice.title, category: notice.category, details: notice.details })
+            .then(function() {
+              refetch();
+            })
+            .catch(function(error) {
+              console.log('Error seeding notice:', error);
+            });
+        });
+      }
+    }, [notices]);
+
+    var fabBottom = Platform.OS === 'web' ? WEB_TAB_MENU_PADDING : (TAB_MENU_HEIGHT + insets.bottom + FAB_SPACING);
+
+    const handleDeleteNotice = function(noticeId, noticeTitle) {
+      var confirmDelete = function() {
+        deleteNotice({ id: noticeId })
+          .then(function() {
+            refetch();
+            Platform.OS === 'web' ? window.alert('Notice deleted successfully!') : Alert.alert('Success', 'Notice deleted successfully!');
+          })
+          .catch(function(error) {
+            Platform.OS === 'web' ? window.alert('Failed to delete notice') : Alert.alert('Error', 'Failed to delete notice');
+          });
+      };
+
+      if (Platform.OS === 'web') {
+        var confirmed = window.confirm('Delete notice: ' + noticeTitle + '?');
+        if (confirmed) {
+          confirmDelete();
+        }
+      } else {
+        Alert.alert('Delete Notice', 'Delete "' + noticeTitle + '"?', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', onPress: confirmDelete, style: 'destructive' }
+        ]);
+      }
+    };
+
+    const renderNoticeItem = function(notice, index) {
+      return React.createElement(View, { testID: 'View-1', key: notice.id || index,
+        style: styles.noticeItem,
+        componentId: 'notice-item-' + (notice.id || index)
+      },
+        React.createElement(View, { testID: 'View-2', style: styles.noticeContentWrapper,
+          componentId: 'notice-content-' + (notice.id || index)
+        },
+          React.createElement(Text, { testID: 'Text-1', style: [styles.noticeTitle, { color: theme.colors.textPrimary }],
+            componentId: 'notice-title-' + (notice.id || index)
+          }, notice.title),
+          React.createElement(Text, { testID: 'Text-2', style: [styles.noticeCategory, { color: theme.colors.primary }],
+            componentId: 'notice-category-' + (notice.id || index)
+          }, notice.category),
+          React.createElement(Text, { testID: 'Text-3', style: [styles.noticeDetails, { color: theme.colors.textSecondary }],
+            componentId: 'notice-details-' + (notice.id || index)
+          }, notice.details),
+          React.createElement(Text, { testID: 'Text-4', style: [styles.postedBy, { color: theme.colors.textSecondary }],
+            componentId: 'notice-posted-by-' + (notice.id || index)
+          }, 'Posted by: ' + (notice.postedBy || 'Administrator'))
+        ),
+        React.createElement(TouchableOpacity, { testID: 'TouchableOpacity-1', style: [styles.deleteButton, { backgroundColor: theme.colors.error }],
+          onPress: function() { handleDeleteNotice(notice.id, notice.title); },
+          componentId: 'delete-notice-button-' + (notice.id || index)
+        },
+          React.createElement(MaterialIcons, { testID: 'MaterialIcons-1', name: 'delete',
+            size: 20,
+            color: '#FFFFFF',
+            componentId: 'delete-icon-' + (notice.id || index)
+          })
+        )
+      );
+    };
+
+    const displayNotices = notices && notices.length > 0 ? notices : exampleNotices;
+
+    return React.createElement(View, { testID: 'View-3', style: [styles.container, { backgroundColor: theme.colors.background }],
+      componentId: 'community-wall-screen'
+    },
+      React.createElement(ScrollView, { testID: 'ScrollView-1', style: { flex: 1 },
+        contentContainerStyle: { paddingTop: scrollTopPadding, paddingBottom: scrollBottomPadding }
+      },
+        React.createElement(View, { testID: 'View-4', style: styles.header, componentId: 'community-wall-header' },
+          React.createElement(Text, { testID: 'Text-4', style: [styles.headerTitle, { color: theme.colors.textPrimary }],
+            componentId: 'header-title'
+          }, 'Building Notices'),
+          React.createElement(Text, { testID: 'Text-5', style: [styles.buildingName, { color: theme.colors.textSecondary }],
+            componentId: 'building-name'
+          }, 'Str. Aviatorilor, Bloc 8, Scara 2')
+        ),
+        React.createElement(View, { testID: 'View-5', style: styles.noticesList, componentId: 'notices-list' },
+          displayNotices.map(renderNoticeItem)
+        )
+      ),
+
+    );
+  };
+  // @end:CommunityWallScreen
+
+  // @section:CreateNoticeScreen @depends:[ThemeContext,styles]
+  const CreateNoticeScreen = function() {
+    const themeContext = useTheme();
+    const theme = themeContext.theme;
+    const insets = useSafeAreaInsets();
+    var scrollBottomPadding = Platform.OS === 'web' ? WEB_TAB_MENU_PADDING : (TAB_MENU_HEIGHT + insets.bottom + SCROLL_EXTRA_PADDING);
+    var scrollTopPadding = insets.top;
+
+    const [title, setTitle] = useState('');
+    const [category, setCategory] = useState('');
+    const [details, setDetails] = useState('');
+
+    const { mutate: insertNotice } = useMutation('notices', 'insert');
+    const { refetch } = useQuery('notices');
+
+    const handlePublish = function() {
+      if (!title.trim()) {
+        Platform.OS === 'web' ? window.alert('Please enter a notice title') : Alert.alert('Error', 'Please enter a notice title');
+        return;
+      }
+
+      const newNotice = {
+        title: title.trim(),
+        category: category.trim() || 'General',
+        details: details.trim()
+      };
+
+      insertNotice(newNotice)
+        .then(function() {
+          refetch();
+          setTitle('');
+          setCategory('');
+          setDetails('');
+          Platform.OS === 'web' ? window.alert('Notice published successfully!') : Alert.alert('Success', 'Notice published successfully!');
+        })
+        .catch(function(error) {
+          Platform.OS === 'web' ? window.alert(error.message) : Alert.alert('Error', error.message);
+        });
+    };
+
+    return React.createElement(ScrollView, { testID: 'ScrollView-2', style: [styles.container, { backgroundColor: theme.colors.background }],
+      contentContainerStyle: { paddingTop: scrollTopPadding, paddingBottom: scrollBottomPadding },
+      componentId: 'create-notice-screen'
+    },
+      React.createElement(View, { testID: 'View-6', style: styles.header, componentId: 'create-notice-header' },
+        React.createElement(Text, { testID: 'Text-5', style: [styles.headerTitle, { color: theme.colors.textPrimary }],
+          componentId: 'create-header-title'
+        }, 'Create Notice')
+      ),
+      React.createElement(View, { testID: 'View-7', style: styles.form, componentId: 'notice-form' },
+        React.createElement(Text, { testID: 'Text-6', style: [styles.label, { color: theme.colors.textPrimary }],
+          componentId: 'title-label'
+        }, 'Notice Title'),
+        React.createElement(TextInput, { testID: 'TextInput-1', style: [styles.textInput, { borderColor: theme.colors.border, color: theme.colors.textPrimary, backgroundColor: theme.colors.background }],
+          value: title,
+          onChangeText: setTitle,
+          placeholder: 'Enter notice title',
+          autoCapitalize: 'words',
+          autoCorrect: true,
+          componentId: 'input-notice-title'
+        }),
+        React.createElement(Text, { testID: 'Text-7', style: [styles.label, { color: theme.colors.textPrimary }],
+          componentId: 'category-label'
+        }, 'Category'),
+        React.createElement(TextInput, { testID: 'TextInput-2', style: [styles.textInput, { borderColor: theme.colors.border, color: theme.colors.textPrimary, backgroundColor: theme.colors.background }],
+          value: category,
+          onChangeText: setCategory,
+          placeholder: 'Enter category',
+          autoCapitalize: 'words',
+          autoCorrect: true,
+          componentId: 'input-category'
+        }),
+        React.createElement(Text, { testID: 'Text-8', style: [styles.label, { color: theme.colors.textPrimary }],
+          componentId: 'details-label'
+        }, 'Details'),
+        React.createElement(TextInput, { testID: 'TextInput-3', style: [styles.textAreaInput, { borderColor: theme.colors.border, color: theme.colors.textPrimary, backgroundColor: theme.colors.background }],
+          value: details,
+          onChangeText: setDetails,
+          placeholder: 'Enter notice details',
+          multiline: true,
+          numberOfLines: 4,
+          textAlignVertical: 'top',
+          autoCapitalize: 'sentences',
+          autoCorrect: true,
+          componentId: 'input-details'
+        }),
+        React.createElement(TouchableOpacity, { testID: 'TouchableOpacity-2', style: [styles.publishButton, { backgroundColor: theme.colors.primary }],
+          onPress: handlePublish,
+          componentId: 'publish-button'
+        },
+          React.createElement(Text, { testID: 'Text-9', style: styles.publishButtonText }, 'Publish on Board')
+        )
+      )
+    );
+  };
+  // @end:CreateNoticeScreen
+
+  // @section:TabNavigator @depends:[CommunityWallScreen,CreateNoticeScreen,navigation-setup]
+  const TabNavigator = function() {
+    var insets = useSafeAreaInsets();
+    var themeContext = useTheme();
+    var theme = themeContext.theme;
+    
+    return React.createElement(View, { testID: 'View-8', style: { flex: 1, width: '100%', height: '100%', overflow: 'hidden' } },
+      React.createElement(Tab.Navigator, { testID: 'Navigator-1', screenOptions: {
+          headerShown: false,
+          tabBarStyle: { position: 'absolute', bottom: 0, height: TAB_MENU_HEIGHT + insets.bottom, borderTopWidth: 0, backgroundColor: theme.colors.card },
+          tabBarItemStyle: { padding: 0 },
+          tabBarActiveTintColor: theme.colors.primary,
+          tabBarInactiveTintColor: theme.colors.textSecondary
+        }
+      },
+        React.createElement(Tab.Screen, { testID: 'Screen-1', name: 'Community Wall',
+          component: CommunityWallScreen,
+          options: { tabBarIcon: function(props) { return React.createElement(MaterialIcons, { testID: 'MaterialIcons-2', name: 'announcement', size: 24, color: props.color }); } }
+        }),
+        React.createElement(Tab.Screen, { testID: 'Screen-2', name: 'Create Notice',
+          component: CreateNoticeScreen,
+          options: { tabBarIcon: function(props) { return React.createElement(MaterialIcons, { testID: 'MaterialIcons-3', name: 'add-circle', size: 24, color: props.color }); } }
+        })
+      )
+    );
+  };
+  // @end:TabNavigator
+
+  // @section:styles @depends:[theme]
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1
+    },
+    header: {
+      padding: 20,
+      paddingBottom: 16
+    },
+    headerTitle: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      textAlign: 'center'
+    },
+    buildingName: {
+      fontSize: 14,
+      textAlign: 'center',
+      marginTop: 8
+    },
+    noticesList: {
+      padding: 20,
+      paddingTop: 0
+    },
+    noticeItem: {
+      backgroundColor: cardColor,
+      borderRadius: 8,
+      padding: 16,
+      marginBottom: 16,
+      borderLeftWidth: 4,
+      borderLeftColor: primaryColor,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 4,
+      elevation: 2,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start'
+    },
+    noticeContentWrapper: {
+      flex: 1,
+      marginRight: 12
+    },
+    noticeTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginBottom: 8
+    },
+    noticeCategory: {
+      fontSize: 14,
+      fontWeight: '600',
+      marginBottom: 8
+    },
+    noticeDetails: {
+      fontSize: 16,
+      lineHeight: 22,
+      marginBottom: 8
+    },
+    postedBy: {
+      fontSize: 12,
+      fontWeight: '500',
+      marginTop: 8
+    },
+    deleteButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2
+    },
+    postButton: {
+      position: 'absolute',
+      left: 20,
+      right: 20,
+      borderRadius: 8,
+      padding: 16,
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 4
+    },
+    postButtonText: {
+      color: '#FFFFFF',
+      fontSize: 18,
+      fontWeight: 'bold'
+    },
+    form: {
+      padding: 20
+    },
+    label: {
+      fontSize: 16,
+      fontWeight: '600',
+      marginBottom: 8,
+      marginTop: 16
+    },
+    textInput: {
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16
+    },
+    textAreaInput: {
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      minHeight: 120
+    },
+    publishButton: {
+      borderRadius: 8,
+      padding: 16,
+      alignItems: 'center',
+      marginTop: 32,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 4
+    },
+    publishButtonText: {
+      color: '#FFFFFF',
+      fontSize: 18,
+      fontWeight: 'bold'
+    }
+  });
+  // @end:styles
+
+  // @section:return @depends:[ThemeProvider,TabNavigator]
+  return React.createElement(ThemeProvider, { testID: 'ThemeProvider-1' },
+    React.createElement(View, { testID: 'View-9', style: { flex: 1, width: '100%', height: '100%' } },
+      React.createElement(StatusBar, { testID: 'StatusBar-1', barStyle: 'dark-content' }),
+      React.createElement(TabNavigator)
+    )
+  );
+  // @end:return
+};
+return ComponentFunction;
